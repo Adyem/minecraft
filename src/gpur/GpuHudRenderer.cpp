@@ -1,0 +1,196 @@
+#include "../../src/gpur/GpuHudRenderer.hpp"
+
+static const char *OVERLAY_VERT = R"GLSL(
+#version 330 core
+layout(location = 0) in vec2 a_pos;
+void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }
+)GLSL";
+
+static const char *OVERLAY_FRAG = R"GLSL(
+#version 330 core
+uniform vec4 u_overlay_color;
+out vec4 frag_color;
+void main() { frag_color = u_overlay_color; }
+)GLSL";
+
+static const char *OVERLAY_TEX_VERT = R"GLSL(
+#version 330 core
+uniform vec2 u_overlay_ndc_br;
+out vec2 v_uv;
+void main()
+{
+    bool is_right = (gl_VertexID == 1 || gl_VertexID == 3);
+    bool is_top   = (gl_VertexID == 2 || gl_VertexID == 3);
+    gl_Position = vec4(
+        is_right ? u_overlay_ndc_br.x : -1.0,
+        is_top   ? 1.0 : u_overlay_ndc_br.y,
+        0.0, 1.0);
+    v_uv = vec2(is_right ? 1.0 : 0.0, is_top ? 0.0 : 1.0);
+}
+)GLSL";
+
+static const char *OVERLAY_TEX_FRAG = R"GLSL(
+#version 330 core
+in vec2 v_uv;
+uniform sampler2D u_overlay_sampler;
+out vec4 frag_color;
+void main() { frag_color = texture(u_overlay_sampler, v_uv); }
+)GLSL";
+
+GpuHudRenderer::GpuHudRenderer()
+    : _fullscreen_vao(0), _crosshair_vao(0), _crosshair_vbo(0),
+      _overlay_tex(0), _overlay_w(0), _overlay_h(0),
+      _menu_tex(0), _menu_tex_w(0), _menu_tex_h(0),
+      _u_overlay_color(-1), _u_overlay_sampler(-1), _u_overlay_ndc_br(-1)
+{}
+
+GpuHudRenderer::GpuHudRenderer(const GpuHudRenderer &other) { (void)other; }
+GpuHudRenderer::~GpuHudRenderer() { destroy(); }
+GpuHudRenderer &GpuHudRenderer::operator=(const GpuHudRenderer &other)
+{ (void)other; return *this; }
+
+bool GpuHudRenderer::initialize() noexcept
+{
+    if (_overlay_shader.initialize(OVERLAY_VERT, OVERLAY_FRAG) != 0)
+        return false;
+    if (_overlay_tex_shader.initialize(OVERLAY_TEX_VERT, OVERLAY_TEX_FRAG) != 0)
+        return false;
+    _u_overlay_color   = _overlay_shader.uniform("u_overlay_color");
+    _u_overlay_sampler = _overlay_tex_shader.uniform("u_overlay_sampler");
+    _u_overlay_ndc_br  = _overlay_tex_shader.uniform("u_overlay_ndc_br");
+    glGenVertexArrays(1, &_fullscreen_vao);
+    glGenVertexArrays(1, &_crosshair_vao);
+    glGenBuffers(1, &_crosshair_vbo);
+    return true;
+}
+
+void GpuHudRenderer::destroy() noexcept
+{
+    if (_fullscreen_vao != 0) { glDeleteVertexArrays(1, &_fullscreen_vao); _fullscreen_vao = 0; }
+    if (_crosshair_vao  != 0) { glDeleteVertexArrays(1, &_crosshair_vao);  _crosshair_vao  = 0; }
+    if (_crosshair_vbo  != 0) { glDeleteBuffers(1, &_crosshair_vbo);        _crosshair_vbo  = 0; }
+    if (_overlay_tex    != 0) { glDeleteTextures(1, &_overlay_tex);          _overlay_tex    = 0; }
+    if (_menu_tex       != 0) { glDeleteTextures(1, &_menu_tex);             _menu_tex       = 0; }
+    _overlay_rgba.clear();
+    _menu_rgba.clear();
+    (void)_overlay_shader.destroy();
+    (void)_overlay_tex_shader.destroy();
+}
+
+void GpuHudRenderer::draw_crosshair(int width, int height) const noexcept
+{
+    float sx = 8.0f / static_cast<float>(width);
+    float sy = 8.0f / static_cast<float>(height);
+    float verts[] = { -sx, 0.0f, sx, 0.0f, 0.0f, -sy, 0.0f, sy };
+    glBindVertexArray(_crosshair_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, _crosshair_vbo);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeof(verts)),
+        verts, GL_STREAM_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE,
+        static_cast<GLsizei>(2 * sizeof(float)), nullptr);
+    glEnableVertexAttribArray(0);
+    _overlay_shader.use();
+    const float col[4] = { 0.96f, 0.96f, 0.92f, 1.0f };
+    glUniform4fv(_u_overlay_color, 1, col);
+    glDisable(GL_DEPTH_TEST);
+    glDrawArrays(GL_LINES, 0, 4);
+    glEnable(GL_DEPTH_TEST);
+    glBindVertexArray(0);
+}
+
+void GpuHudRenderer::upload_tex(GLuint &tex, int &stored_w, int &stored_h,
+    std::vector<uint8_t> &rgba_buf,
+    const uint32_t *pixels, int w, int h,
+    bool opaque_alpha) noexcept
+{
+    if (!pixels || w <= 0 || h <= 0) return;
+    const size_t count = static_cast<size_t>(w) * static_cast<size_t>(h);
+    if (rgba_buf.size() != count * 4U) rgba_buf.resize(count * 4U);
+    for (size_t i = 0; i < count; ++i)
+    {
+        uint32_t p  = pixels[i];
+        uint8_t  r  = static_cast<uint8_t>((p >> 16) & 0xFFU);
+        uint8_t  g2 = static_cast<uint8_t>((p >>  8) & 0xFFU);
+        uint8_t  b  = static_cast<uint8_t>( p        & 0xFFU);
+        uint8_t  a  = opaque_alpha
+            ? ((p == 0U) ? 0U : 255U)
+            : FT_CONDITIONAL_STATIC_CAST(uint8_t,
+                (r > g2 ? (r > b ? r : b) : (g2 > b ? g2 : b)));
+        rgba_buf[i*4U+0U] = r; rgba_buf[i*4U+1U] = g2;
+        rgba_buf[i*4U+2U] = b; rgba_buf[i*4U+3U] = a;
+    }
+    bool realloc = (tex == 0 || w != stored_w || h != stored_h);
+    if (tex == 0) glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    if (realloc)
+    {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
+            w, h, 0,
+            GL_RGBA, GL_UNSIGNED_BYTE, rgba_buf.data());
+        stored_w = w; stored_h = h;
+    }
+    else
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+            w, h,
+            GL_RGBA, GL_UNSIGNED_BYTE, rgba_buf.data());
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void GpuHudRenderer::draw_tex_quad(GLuint tex,
+    float ndc_br_x, float ndc_br_y) noexcept
+{
+    _overlay_tex_shader.use();
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glUniform1i(_u_overlay_sampler, 1);
+    glUniform2f(_u_overlay_ndc_br, ndc_br_x, ndc_br_y);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_DEPTH_TEST);
+    glBindVertexArray(_fullscreen_vao);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE0);
+}
+
+void GpuHudRenderer::upload_overlay(const uint32_t *pixels,
+    int w, int h) noexcept
+{
+    upload_tex(_overlay_tex, _overlay_w, _overlay_h,
+        _overlay_rgba, pixels, w, h, false);
+}
+
+void GpuHudRenderer::draw_overlay(int width, int height) noexcept
+{
+    if (_overlay_tex == 0 || _overlay_w <= 0 || _overlay_h <= 0) return;
+    float bx = static_cast<float>(_overlay_w) * 2.0f / static_cast<float>(width)  - 1.0f;
+    float by = 1.0f - static_cast<float>(_overlay_h) * 2.0f / static_cast<float>(height);
+    draw_tex_quad(_overlay_tex, bx, by);
+}
+
+void GpuHudRenderer::upload_menu(const uint32_t *pixels,
+    int w, int h) noexcept
+{
+    upload_tex(_menu_tex, _menu_tex_w, _menu_tex_h,
+        _menu_rgba, pixels, w, h, true);
+}
+
+void GpuHudRenderer::draw_menu() noexcept
+{
+    if (_menu_tex == 0) return;
+    draw_tex_quad(_menu_tex, 1.0f, -1.0f);
+}
+
+size_t GpuHudRenderer::gpu_bytes() const noexcept
+{
+    return static_cast<size_t>(_overlay_w) * static_cast<size_t>(_overlay_h) * 4U
+         + static_cast<size_t>(_menu_tex_w) * static_cast<size_t>(_menu_tex_h) * 4U;
+}

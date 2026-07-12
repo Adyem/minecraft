@@ -1,0 +1,4 @@
+[submodule "Libft"]
+	path = Libft
+	url = https://github.com/Adyem/Libft
+	branch = main

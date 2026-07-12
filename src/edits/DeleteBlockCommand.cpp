@@ -1,0 +1,44 @@
+#include "../../src/edits/DeleteBlockCommand.hpp"
+
+DeleteBlockCommand::DeleteBlockCommand() : world_x(0), world_y(0), world_z(0)
+{
+}
+
+DeleteBlockCommand::DeleteBlockCommand(int32_t block_x, int32_t block_y, int32_t block_z)
+    : world_x(block_x), world_y(block_y), world_z(block_z)
+{
+}
+
+DeleteBlockCommand::DeleteBlockCommand(const DeleteBlockCommand &other)
+    : WorldEditCommand(other), world_x(0), world_y(0), world_z(0)
+{
+    *this = other;
+}
+
+DeleteBlockCommand::~DeleteBlockCommand()
+{
+}
+
+DeleteBlockCommand &DeleteBlockCommand::operator=(const DeleteBlockCommand &other)
+{
+    if (this != &other)
+    {
+        world_x = other.world_x;
+        world_y = other.world_y;
+        world_z = other.world_z;
+    }
+    return *this;
+}
+
+int32_t DeleteBlockCommand::execute(World &world) const
+{
+    int32_t cx, cz, lx, lz;
+    WorldChunk *wc = resolve_chunk(world, world_x, world_y, world_z, cx, cz, lx, lz);
+    if (!wc)
+        return FT_ERR_INVALID_ARGUMENT;
+    int32_t err = wc->chunk.write_block(lx, world_y, lz, GAME_VOXEL_AIR_BLOCK);
+    if (err != FT_ERR_SUCCESS)
+        return err;
+    return WorldChunkLoader::remesh_edited_chunk_border(world.chunks, world.chunk_count, cx, cz, lx,
+                                                        lz);
+}

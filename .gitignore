@@ -1,0 +1,8 @@
+ft_vox
+ft_vox_debug
+automated_tests
+objs/
+objs_debug/
+objs_tests/
+build_logs/
+ft_vox_config.json

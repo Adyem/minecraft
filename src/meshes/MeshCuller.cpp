@@ -1,0 +1,121 @@
+#include "../../src/meshes/MeshCuller.hpp"
+
+MeshCuller::MeshCuller()
+{
+}
+MeshCuller::MeshCuller(const MeshCuller &other)
+{
+    (void)other;
+}
+MeshCuller::~MeshCuller()
+{
+}
+MeshCuller &MeshCuller::operator=(const MeshCuller &other)
+{
+    (void)other;
+    return *this;
+}
+
+void MeshCuller::face_normal(uint8_t face, double &nx, double &ny, double &nz)
+{
+    nx = 0.0;
+    ny = 0.0;
+    nz = 0.0;
+    if (face == CHUNK_MESH_FACE_WEST)
+        nx = -1.0;
+    else if (face == CHUNK_MESH_FACE_EAST)
+        nx = 1.0;
+    else if (face == CHUNK_MESH_FACE_DOWN)
+        ny = -1.0;
+    else if (face == CHUNK_MESH_FACE_UP)
+        ny = 1.0;
+    else if (face == CHUNK_MESH_FACE_NORTH)
+        nz = -1.0;
+    else
+        nz = 1.0;
+}
+
+bool MeshCuller::triangle_faces_camera(const Camera &camera, const WorldChunk &world_chunk,
+                                       const chunk_mesh_vertex triangle_vertices[3])
+{
+    double nx, ny, nz;
+    face_normal(triangle_vertices[0].face, nx, ny, nz);
+
+    double wx = static_cast<double>(world_chunk.world_x) +
+                static_cast<double>(triangle_vertices[0].coordinate_x);
+    double wy = static_cast<double>(triangle_vertices[0].coordinate_y);
+    double wz = static_cast<double>(world_chunk.world_z) +
+                static_cast<double>(triangle_vertices[0].coordinate_z);
+
+    double dot = nx * (camera.x - wx) + ny * (camera.y - wy) + nz * (camera.z - wz);
+    return dot > 0.0;
+}
+
+void MeshCuller::chunk_corner_in_view(const Camera &camera, const WorldChunk &wc,
+                                      const RenderCache &cache, double local_x, double local_y,
+                                      double local_z, double &view_x, double &pitched_y,
+                                      double &pitched_z)
+{
+    double cx = static_cast<double>(wc.world_x) + local_x - camera.x;
+    double cy = local_y - camera.y;
+    double cz = static_cast<double>(wc.world_z) + local_z - camera.z;
+
+    view_x = cx * cache.yaw_cos - cz * cache.yaw_sin;
+    double vz = cx * cache.yaw_sin + cz * cache.yaw_cos;
+
+    pitched_y = cy * cache.pitch_cos - vz * cache.pitch_sin;
+    pitched_z = cy * cache.pitch_sin + vz * cache.pitch_cos;
+}
+
+bool MeshCuller::chunk_aabb_is_visible(const Camera &camera, const WorldChunk &world_chunk,
+                                       const RenderCache &cache)
+{
+    const double xs[2] = {0.0, static_cast<double>(GAME_VOXEL_CHUNK_WIDTH)};
+    const double ys[2] = {0.0, static_cast<double>(GAME_VOXEL_CHUNK_HEIGHT)};
+    const double zs[2] = {0.0, static_cast<double>(GAME_VOXEL_CHUNK_DEPTH)};
+    const double horizontal_tangent = cache.fov_tangent * cache.aspect_ratio;
+    bool outside_near = true;
+    bool outside_far = true;
+    bool outside_left = true;
+    bool outside_right = true;
+    bool outside_bottom = true;
+    bool outside_top = true;
+
+    for (int xi = 0; xi < 2; ++xi)
+    {
+        for (int yi = 0; yi < 2; ++yi)
+        {
+            for (int zi = 0; zi < 2; ++zi)
+            {
+                double view_x;
+                double pitched_y;
+                double pitched_z;
+
+                chunk_corner_in_view(camera, world_chunk, cache, xs[xi], ys[yi], zs[zi], view_x,
+                                     pitched_y, pitched_z);
+                if (pitched_z >= 0.0)
+                    outside_near = false;
+                if (pitched_z <= cache.render_distance)
+                    outside_far = false;
+                if (view_x >= -pitched_z * horizontal_tangent)
+                    outside_left = false;
+                if (view_x <= pitched_z * horizontal_tangent)
+                    outside_right = false;
+                if (pitched_y >= -pitched_z * cache.fov_tangent)
+                    outside_bottom = false;
+                if (pitched_y <= pitched_z * cache.fov_tangent)
+                    outside_top = false;
+            }
+        }
+    }
+    return !(outside_near || outside_far || outside_left || outside_right || outside_bottom ||
+             outside_top);
+}
+
+bool MeshCuller::chunk_is_visible(const Camera &camera, const WorldChunk &world_chunk,
+                                  const RenderCache &cache)
+{
+    if (world_chunk.mesh.vertices.empty() == FT_TRUE)
+        return false;
+    return chunk_aabb_is_visible(camera, world_chunk, cache);
+}
