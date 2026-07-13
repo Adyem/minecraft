@@ -1,29 +1,30 @@
-# ft_vox
+# ft_minecraft
 
-`ft_vox` is the voxel-world project from the Campus 19 subject: a very large
-procedural cube world, smooth fullscreen rendering, an FPS-style camera, and a
-skybox.
+The repository is now the base for **`ft_minecraft`**, the follow-up project:
+diverse biomes, rivers, caves with ore clusters, monsters, multiplayer, and
+advanced rendering (lighting, shadows, SSAO, fog). The active task list,
+owner-tagged milestones, and bonus scope are in
+[MILESTONES.md](MILESTONES.md) — that is now the source of truth for
+day-to-day work.
 
-The repository already contains a working prototype built around Libft DUMB for
-window/input glue and Libft Voxel/Game modules for chunk storage, deterministic
-terrain data, and mesh generation.
-
-The up-to-date task list is kept in [remaining.md](remaining.md). That file is
-the source of truth for what is still missing from the mandatory and bonus
-requirements.
+The prototype is built around Libft DUMB for window/input glue and Libft
+Voxel/Game modules for chunk storage, deterministic terrain data, and mesh
+generation.
 
 ## Current Focus
 
-The old completed-task checklist has been removed from this README. The main
-remaining blockers are:
+Building `ft_minecraft` on top of the working `ft_vox` engine. See
+[MILESTONES.md](MILESTONES.md) for the full plan; in short:
 
-- move rendering from the current CPU software framebuffer path to an approved
-  direct graphics API path such as OpenGL, Vulkan, Metal, WebGPU, or OpenCL;
-- verify smooth 160-cube visibility in a real fullscreen run;
-- fix and verify Linux FPS mouse capture so the cursor cannot freely leave the
-  centered look area;
-- validate long-running memory stability and real GUI x20 movement;
-- keep the bonus features working only after the mandatory part is solid.
+- lock shared contracts (persistence format, network protocol, entity state)
+  before splitting off into parallel tracks;
+- Track A (bvangene): world/biome overhaul, caves & ore clusters, vegetation,
+  player mechanics (sprint/fly/swim), monsters, and the gameplay bonus
+  features (growing plants, crafting, bow & arrow, villages, nether portal,
+  water simulation);
+- Track B (rperez-t): persistence, advanced rendering (lighting, shadows,
+  SSAO, fog, clouds), server-authoritative multiplayer netcode, interface
+  and audio, and cross-platform packaging.
 
 ## Build
 
@@ -51,4 +52,4 @@ Clean build files:
 make fclean
 ```
 
-For the detailed audit and next steps, see [remaining.md](remaining.md).
+For the active `ft_minecraft` plan and milestones, see [MILESTONES.md](MILESTONES.md).
