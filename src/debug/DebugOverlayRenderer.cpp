@@ -15,8 +15,12 @@ const uint8_t DebugOverlayRenderer::DIGIT_GLYPHS[37][5] = {
 };
 // clang-format on
 
-const char *DebugOverlayRenderer::BLOCK_NAMES[9] = {"AIR",     "GRASS",  "DIRT",   "STONE", "SHRUB",
-                                                    "OAK LOG", "LEAVES", "CACTUS", "WATER"};
+const char *DebugOverlayRenderer::BLOCK_NAMES[16] = {"AIR",       "GRASS",      "DIRT",
+                                                     "STONE",     "SHRUB",      "OAK LOG",
+                                                     "LEAVES",    "CACTUS",     "WATER",
+                                                     "BEDROCK",   "SAND",       "SNOW",
+                                                     "PERMAFROST", "CANYON ROCK", "SLATE",
+                                                     "MOSS ROCK"};
 
 DebugOverlayRenderer::DebugOverlayRenderer()
 {
@@ -121,7 +125,7 @@ void DebugOverlayRenderer::draw_overlay_world(ft_render_framebuffer &fb, const R
     draw_line(fb, x, line, lh, text, scale);
     std::snprintf(text, sizeof(text), "RENDER DIST  %d  FLOOR 14", d->render_distance);
     draw_line(fb, x, line, lh, text, scale);
-    const char *bname = d->selected_block_id < 9U ? BLOCK_NAMES[d->selected_block_id] : "UNKNOWN";
+    const char *bname = d->selected_block_id < 16U ? BLOCK_NAMES[d->selected_block_id] : "UNKNOWN";
     std::snprintf(text, sizeof(text), "BLOCK  %s", bname);
     draw_line(fb, x, line, lh, text, scale);
 }

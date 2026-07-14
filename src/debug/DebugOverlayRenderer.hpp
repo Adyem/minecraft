@@ -19,7 +19,7 @@ class DebugOverlayRenderer
 
   private:
     static const uint8_t DIGIT_GLYPHS[37][5];
-    static const char *BLOCK_NAMES[9];
+    static const char *BLOCK_NAMES[16];
 
     static const uint8_t *digit_bitmap(char character);
     static void draw_debug_char(ft_render_framebuffer &framebuffer, int32_t origin_x,

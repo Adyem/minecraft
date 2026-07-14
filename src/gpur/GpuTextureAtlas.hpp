@@ -28,7 +28,7 @@ class GpuTextureAtlas
     GLuint _tex;
     bool _loaded;
 
-    static const uint32_t BLOCK_IDS[8];
+    static const uint32_t BLOCK_IDS[15];
     static const int BLOCK_COUNT;
 };
 
