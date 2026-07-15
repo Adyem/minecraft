@@ -102,6 +102,12 @@ int GameSession::start(const std::string &seed, ApplicationWindow &window, Voxel
     return FT_ERR_SUCCESS;
 }
 
+void GameSession::set_terrain_generation_config(
+    const terrain_generation_config &config)
+{
+    this->world_.set_terrain_config(config);
+}
+
 void GameSession::stop()
 {
     if (active_)
@@ -224,11 +230,16 @@ void GameSession::build_render_debug(VoxelRenderer &renderer)
     std::strncpy(render_debug_.seed, seed_, sizeof(render_debug_.seed) - 1);
     render_debug_.seed[sizeof(render_debug_.seed) - 1] = '\0';
 
-    terrain_biome b =
-        terrain_get_biome(static_cast<int32_t>(camera_.x), static_cast<int32_t>(camera_.z), seed_);
-    int bi = static_cast<int>(b);
-    const char *bname = (bi >= 0 && bi < 5) ? BIOME_NAMES[bi] : "UNKNOWN";
-    std::strncpy(render_debug_.biome_name, bname, sizeof(render_debug_.biome_name) - 1);
+    uint32_t biome_index = terrain_get_biome_index(
+        world_.terrain_generation_settings(), static_cast<int32_t>(camera_.x),
+        static_cast<int32_t>(camera_.z), seed_);
+    const char *bname = (biome_index < 5U) ? BIOME_NAMES[biome_index] : nullptr;
+    if (bname != nullptr)
+        std::strncpy(render_debug_.biome_name, bname,
+            sizeof(render_debug_.biome_name) - 1);
+    else
+        std::snprintf(render_debug_.biome_name, sizeof(render_debug_.biome_name),
+            "CUSTOM_%u", biome_index);
     render_debug_.biome_name[sizeof(render_debug_.biome_name) - 1] = '\0';
 }
 

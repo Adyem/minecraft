@@ -28,6 +28,7 @@ SRC = \
     src/validators/WorldVisibilityValidator.cpp \
     src/validators/TerrainDeterminismValidator.cpp \
     src/validators/TerrainCaveValidator.cpp \
+    src/validators/TerrainConfigValidator.cpp \
     src/validators/WorldScaleValidator.cpp \
     src/policy/RenderDistanceStrategy.cpp \
     src/policy/AdaptiveRenderStrategy.cpp \

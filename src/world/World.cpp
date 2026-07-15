@@ -15,6 +15,7 @@ World::World()
     this->chunk_index_center_z = 0;
     this->active_render_distance = WorldCoordinates::REQUIRED_VISIBLE_DISTANCE;
     this->seed[0] = '\0';
+    this->terrain_config = terrain_default_generation_config();
     this->clear_chunk_index();
 }
 
@@ -138,6 +139,16 @@ int32_t World::initialize(const char *seed_value)
     return (error_code);
 }
 
+void World::set_terrain_config(const terrain_generation_config &config)
+{
+    this->terrain_config = config;
+}
+
+const terrain_generation_config &World::terrain_generation_settings() const
+{
+    return (this->terrain_config);
+}
+
 void World::destroy()
 {
     int32_t index;
@@ -169,7 +180,8 @@ int32_t World::try_load_chunk_at(int32_t chunk_x, int32_t chunk_z)
     if (slot == nullptr)
         return (FT_ERR_NO_MEMORY);
     error_code = WorldChunkLoader::initialize_chunk(slot, chunk_x, chunk_z, this->seed,
-                                                    this->chunks, this->chunk_count);
+                                                    this->chunks, this->chunk_count,
+                                                    this->terrain_config);
     if (error_code != FT_ERR_SUCCESS)
         return (error_code);
     this->loaded_chunk_count = this->loaded_chunk_count + 1;

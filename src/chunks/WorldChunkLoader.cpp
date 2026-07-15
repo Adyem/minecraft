@@ -55,7 +55,8 @@ int32_t WorldChunkLoader::setup_chunk_coordinates(WorldChunk *world_chunk, int32
     return FT_ERR_SUCCESS;
 }
 
-int32_t WorldChunkLoader::init_chunk_data(WorldChunk *world_chunk, const char *seed)
+int32_t WorldChunkLoader::init_chunk_data(WorldChunk *world_chunk, const char *seed,
+                                          const terrain_generation_config *config)
 {
     int32_t err = world_chunk->chunk.initialize();
     if (err != FT_ERR_SUCCESS)
@@ -66,8 +67,12 @@ int32_t WorldChunkLoader::init_chunk_data(WorldChunk *world_chunk, const char *s
         (void)world_chunk->chunk.destroy();
         return err;
     }
-    err = terrain_generate_chunk(world_chunk->chunk, world_chunk->world_x, world_chunk->world_z,
-                                 seed);
+    if (config != nullptr)
+        err = terrain_generate_chunk(world_chunk->chunk, world_chunk->world_x,
+                                     world_chunk->world_z, seed, *config);
+    else
+        err = terrain_generate_chunk(world_chunk->chunk, world_chunk->world_x,
+                                     world_chunk->world_z, seed);
     if (err != FT_ERR_SUCCESS)
     {
         (void)chunk_mesh_destroy(world_chunk->mesh);
@@ -119,6 +124,24 @@ int32_t WorldChunkLoader::initialize_chunk(WorldChunk *world_chunk, int32_t chun
     if (err != FT_ERR_SUCCESS)
         return err;
     err = init_chunk_data(world_chunk, seed);
+    if (err != FT_ERR_SUCCESS)
+        return err;
+    err = build_mesh_with_neighbors(world_chunk, chunk_x, chunk_z, chunks, chunk_count);
+    if (err != FT_ERR_SUCCESS)
+        return err;
+    world_chunk->initialized = true;
+    return FT_ERR_SUCCESS;
+}
+
+int32_t WorldChunkLoader::initialize_chunk(WorldChunk *world_chunk, int32_t chunk_x,
+                                           int32_t chunk_z, const char *seed, WorldChunk *chunks,
+                                           int32_t chunk_count,
+                                           const terrain_generation_config &config)
+{
+    int32_t err = setup_chunk_coordinates(world_chunk, chunk_x, chunk_z);
+    if (err != FT_ERR_SUCCESS)
+        return err;
+    err = init_chunk_data(world_chunk, seed, &config);
     if (err != FT_ERR_SUCCESS)
         return err;
     err = build_mesh_with_neighbors(world_chunk, chunk_x, chunk_z, chunks, chunk_count);

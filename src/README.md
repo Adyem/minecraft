@@ -17,6 +17,31 @@ This folder is organized by file responsibility using shallow, single-word folde
 9. `edits` applies command-pattern block changes.
 10. `render` coordinates the render pass through the render helper folders.
 
+## Runtime terrain customization
+
+The application can configure terrain before starting a `GameSession`; the
+configuration is copied into `World` and passed to every generated chunk.
+Libft keeps the low-level generator and built-in templates, while the game
+chooses the policy:
+
+```cpp
+terrain_generation_config terrain = terrain_default_generation_config();
+terrain.sea_level = 68;
+terrain.water_chance_percent = 55;
+terrain.biomes[0].profile.height_variation = 10; // uneven plains
+terrain.biomes[0].tree_chance_percent = 8;
+terrain.biomes[0].tree_template = &terrain_large_oak_tree_template();
+
+GameSession session;
+session.set_terrain_generation_config(terrain);
+session.start(seed, window, renderer);
+```
+
+Custom biome slots are selected with `biome_selector`; custom tree/object
+templates are supplied through `terrain_feature_rule`. Validate a policy with
+`terrain_generation_config_is_valid` before starting generation. The
+integration check is available through `--validate-terrain-configuration`.
+
 ## Folders
 
 - `app`: `Application`, the application facade and main loop entry point.

@@ -6,6 +6,7 @@
 #include "../../src/validators/BlockEditValidator.hpp"
 #include "../../src/validators/TerrainDeterminismValidator.hpp"
 #include "../../src/validators/TerrainCaveValidator.hpp"
+#include "../../src/validators/TerrainConfigValidator.hpp"
 #include "../../src/validators/WorldScaleValidator.hpp"
 #include "../../src/validators/WorldVisibilityValidator.hpp"
 
@@ -24,6 +25,7 @@ class ApplicationValidator
         static int validate_terrain_determinism();
         static int validate_world_scale();
         static int validate_caves();
+        static int validate_terrain_configuration();
 };
 
 #endif

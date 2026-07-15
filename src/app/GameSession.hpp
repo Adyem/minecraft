@@ -31,6 +31,7 @@ class GameSession
     GameSession &operator=(const GameSession &other);
 
     int start(const std::string &seed, ApplicationWindow &window, VoxelRenderer &renderer);
+    void set_terrain_generation_config(const terrain_generation_config &config);
     void stop();
     bool is_active() const;
     bool is_ready_to_play() const;

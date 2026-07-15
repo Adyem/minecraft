@@ -27,6 +27,7 @@ class World
     int32_t center_chunk_z;
     int32_t active_render_distance;
     char seed[128];
+    terrain_generation_config terrain_config;
 
     World();
     World(const World &other);
@@ -34,6 +35,8 @@ class World
     World &operator=(const World &other);
 
     int32_t initialize(const char *seed_value);
+    void set_terrain_config(const terrain_generation_config &config);
+    const terrain_generation_config &terrain_generation_settings() const;
     void destroy();
     int32_t update_around(double camera_x, double camera_z, int32_t generation_budget);
     int32_t update_around(double camera_x, double camera_z, int32_t generation_budget,

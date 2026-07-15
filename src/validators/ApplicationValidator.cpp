@@ -53,3 +53,8 @@ int ApplicationValidator::validate_caves()
 {
     return (TerrainCaveValidator().validate());
 }
+
+int ApplicationValidator::validate_terrain_configuration()
+{
+    return (TerrainConfigValidator().validate());
+}
