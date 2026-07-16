@@ -301,12 +301,14 @@ void Application::run_game_loop(ApplicationWindow &window, MenuController &menu,
                                 GameSession &session, VoxelRenderer &renderer,
                                 const RenderDistanceStrategy &strategy)
 {
+    const std::chrono::duration<double> target_frame_time(1.0 / 120.0);
     Phase phase = Phase::MAIN_MENU;
     int loading_frames = 0;
     auto prev_time = std::chrono::steady_clock::now();
 
     while (!window.should_close() && !menu.wants_exit())
     {
+        const auto frame_start = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();
         double dt = std::min(std::chrono::duration<double>(now - prev_time).count(), 0.1);
         prev_time = now;
@@ -322,6 +324,9 @@ void Application::run_game_loop(ApplicationWindow &window, MenuController &menu,
         phase = tick_phase(phase, window, menu, session, renderer, dt, loading_frames, strategy);
         render_frame(phase, window, menu, session, renderer);
         window.present();
+        const auto frame_deadline = frame_start +
+            std::chrono::duration_cast<std::chrono::steady_clock::duration>(target_frame_time);
+        std::this_thread::sleep_until(frame_deadline);
     }
 }
 

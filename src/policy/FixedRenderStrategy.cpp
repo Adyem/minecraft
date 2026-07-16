@@ -31,9 +31,10 @@ int32_t FixedRenderStrategy::update_render_distance(int32_t current_distance, do
 int32_t FixedRenderStrategy::generation_budget_for_frame(double frame_ms, bool boost_enabled) const
 {
     (void)frame_ms;
-    if (boost_enabled == true)
-        return (1);
-    return (4);
+    (void)boost_enabled;
+    if (frame_ms > 12.0)
+        return (0);
+    return (1);
 }
 
 bool FixedRenderStrategy::should_update_render_distance(double elapsed_since_update) const

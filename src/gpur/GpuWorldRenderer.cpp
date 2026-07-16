@@ -3,6 +3,7 @@
 
 GpuWorldRenderer::GpuWorldRenderer()
     : _sky_vao(0), _crosshair_vao(0), _crosshair_vbo(0), _width(0), _height(0), _u_mvp(-1),
+      _u_chunk_offset(-1),
       _u_atlas(-1), _u_atlas_loaded(-1), _u_tile_uvs(-1), _u_fallback(-1), _u_sky_size(-1),
       _u_crosshair_color(-1)
 {
@@ -12,6 +13,7 @@ GpuWorldRenderer::GpuWorldRenderer()
 
 GpuWorldRenderer::GpuWorldRenderer(const GpuWorldRenderer &other)
     : _sky_vao(0), _crosshair_vao(0), _crosshair_vbo(0), _width(0), _height(0), _u_mvp(-1),
+      _u_chunk_offset(-1),
       _u_atlas(-1), _u_atlas_loaded(-1), _u_tile_uvs(-1), _u_fallback(-1), _u_sky_size(-1),
       _u_crosshair_color(-1)
 {
@@ -62,6 +64,7 @@ bool GpuWorldRenderer::compile_shaders(const std::string &d)
 void GpuWorldRenderer::cache_uniforms()
 {
     _u_mvp = _world_shader.uniform("u_mvp");
+    _u_chunk_offset = _world_shader.uniform("u_chunk_offset");
     _u_atlas = _world_shader.uniform("u_atlas");
     _u_atlas_loaded = _world_shader.uniform("u_atlas_loaded");
     _u_tile_uvs = _world_shader.uniform("u_tile_uvs");
@@ -159,8 +162,8 @@ void GpuWorldRenderer::render(const Camera &camera, const World &world)
     GpuMvpBuilder::build(mvp, camera, _width, _height, 0.08f, far_z);
     _batch.collect(camera, world, _width, _height);
     _world_shader.use();
-    _batch.flush_solid(0, _u_mvp, mvp, _atlas);
-    _batch.flush_water(0, _u_mvp, mvp, _atlas);
+    _batch.flush_solid(0, _u_mvp, _u_chunk_offset, mvp, _atlas);
+    _batch.flush_water(0, _u_mvp, _u_chunk_offset, mvp, _atlas);
     draw_crosshair();
 }
 

@@ -9,6 +9,7 @@
 #include "../../src/chunks/WorldChunk.hpp"
 #include "../../src/frame/RenderCache.hpp"
 #include "../../src/gpur/GpuTextureAtlas.hpp"
+#include "../../src/gpur/GpuChunkMesh.hpp"
 #include "../../src/meshes/MeshCuller.hpp"
 #include "../../src/world/World.hpp"
 
@@ -32,8 +33,10 @@ class GpuGeometryBatch
     void destroy();
 
     void collect(const Camera &camera, const World &world, int width, int height);
-    void flush_solid(GLuint world_shader_prog, GLint u_mvp, const float mvp[16], GpuTextureAtlas &atlas);
-    void flush_water(GLuint world_shader_prog, GLint u_mvp, const float mvp[16], GpuTextureAtlas &atlas);
+    void flush_solid(GLuint world_shader_prog, GLint u_mvp, GLint u_chunk_offset,
+                     const float mvp[16], GpuTextureAtlas &atlas);
+    void flush_water(GLuint world_shader_prog, GLint u_mvp, GLint u_chunk_offset,
+                     const float mvp[16], GpuTextureAtlas &atlas);
     size_t gpu_bytes() const;
 
   private:
@@ -51,6 +54,13 @@ class GpuGeometryBatch
     std::vector<uint32_t> _water_idxs;
 
     bool _owns_vbo;
+    uint64_t _geometry_signature;
+    bool _cache_valid;
+    bool _buffers_dirty;
+    GpuChunkMesh _chunk_meshes[WorldCoordinates::CHUNK_COUNT];
+    std::vector<int32_t> _visible_chunk_slots;
+    int32_t _chunk_world_x[WorldCoordinates::CHUNK_COUNT];
+    int32_t _chunk_world_z[WorldCoordinates::CHUNK_COUNT];
 
     void setup_world_vao();
     void setup_water_vao();
@@ -58,6 +68,8 @@ class GpuGeometryBatch
     void add_chunk(const WorldChunk &wc, uint32_t base);
     void upload_solid_buffers();
     void upload_water_buffer();
+    void upload_buffers_if_dirty();
+    static uint64_t geometry_signature(const World &world);
 };
 
 #endif

@@ -61,12 +61,23 @@ class World
     WorldChunk *find_chunk_mutable(int32_t chunk_x, int32_t chunk_z);
 
   private:
+    struct StreamCandidate
+    {
+        int32_t offset_x;
+        int32_t offset_z;
+        int32_t dist_sq;
+    };
+
+    std::vector<StreamCandidate> stream_candidates_;
+    int32_t stream_candidates_radius_;
+
     void copy_seed(const char *seed_value);
     void clear_chunk_index();
     void rebuild_chunk_index();
     void register_chunk_index(const WorldChunk &chunk);
     int32_t try_load_chunk_at(int32_t chunk_x, int32_t chunk_z);
     int32_t stream_chunks(int32_t stream_radius, int32_t budget, int32_t *generated);
+    void prepare_stream_candidates(int32_t stream_radius);
 };
 
 #endif

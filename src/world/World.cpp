@@ -1,6 +1,6 @@
 #include "../../src/world/World.hpp"
 
-World::World(const World &other) { (void)other; }
+World::World(const World &other) : stream_candidates_radius_(-1) { (void)other; }
 World &World::operator=(const World &other)
 { (void)other; return (*this); }
 
@@ -14,6 +14,7 @@ World::World()
     this->chunk_index_center_x = 0;
     this->chunk_index_center_z = 0;
     this->active_render_distance = WorldCoordinates::REQUIRED_VISIBLE_DISTANCE;
+    this->stream_candidates_radius_ = -1;
     this->seed[0] = '\0';
     this->terrain_config = terrain_default_generation_config();
     this->clear_chunk_index();
@@ -139,6 +140,39 @@ int32_t World::initialize(const char *seed_value)
     return (error_code);
 }
 
+void World::prepare_stream_candidates(int32_t stream_radius)
+{
+    if (this->stream_candidates_radius_ == stream_radius)
+        return;
+    this->stream_candidates_.clear();
+    this->stream_candidates_.reserve(static_cast<size_t>((stream_radius * 2 + 1) *
+                                                         (stream_radius * 2 + 1)));
+    const int32_t radius_sq = stream_radius * stream_radius;
+    for (int32_t z = -stream_radius; z <= stream_radius; ++z)
+    {
+        for (int32_t x = -stream_radius; x <= stream_radius; ++x)
+        {
+            const int32_t dist_sq = (x * x) + (z * z);
+            if (dist_sq <= radius_sq)
+                this->stream_candidates_.push_back({x, z, dist_sq});
+        }
+    }
+    std::sort(this->stream_candidates_.begin(), this->stream_candidates_.end(),
+              [](const StreamCandidate &a, const StreamCandidate &b) -> bool
+              {
+                  if (a.dist_sq != b.dist_sq)
+                      return a.dist_sq < b.dist_sq;
+                  const int32_t a_manhattan = std::abs(a.offset_x) + std::abs(a.offset_z);
+                  const int32_t b_manhattan = std::abs(b.offset_x) + std::abs(b.offset_z);
+                  if (a_manhattan != b_manhattan)
+                      return a_manhattan < b_manhattan;
+                  if (a.offset_z != b.offset_z)
+                      return a.offset_z < b.offset_z;
+                  return a.offset_x < b.offset_x;
+              });
+    this->stream_candidates_radius_ = stream_radius;
+}
+
 void World::set_terrain_config(const terrain_generation_config &config)
 {
     this->terrain_config = config;
@@ -196,50 +230,8 @@ int32_t World::try_load_chunk_at(int32_t chunk_x, int32_t chunk_z)
 int32_t World::stream_chunks(int32_t stream_radius, int32_t budget, int32_t *generated)
 {
     int32_t result;
-    struct Candidate
-    {
-        int32_t offset_x;
-        int32_t offset_z;
-        int32_t dist_sq;
-    };
-    std::vector<Candidate> candidates;
-    int32_t offset_x;
-    int32_t offset_z;
-    int32_t radius_sq;
-
-    radius_sq = stream_radius * stream_radius;
-    candidates.reserve(static_cast<size_t>((stream_radius * 2 + 1) * (stream_radius * 2 + 1)));
-    offset_z = -stream_radius;
-    while (offset_z <= stream_radius)
-    {
-        offset_x = -stream_radius;
-        while (offset_x <= stream_radius)
-        {
-            Candidate candidate;
-
-            candidate.offset_x = offset_x;
-            candidate.offset_z = offset_z;
-            candidate.dist_sq = (offset_x * offset_x) + (offset_z * offset_z);
-            if (candidate.dist_sq <= radius_sq)
-                candidates.push_back(candidate);
-            offset_x = offset_x + 1;
-        }
-        offset_z = offset_z + 1;
-    }
-    std::sort(candidates.begin(), candidates.end(),
-              [](const Candidate &a, const Candidate &b) -> bool
-              {
-                  if (a.dist_sq != b.dist_sq)
-                      return (a.dist_sq < b.dist_sq);
-                  int32_t a_manhattan = std::abs(a.offset_x) + std::abs(a.offset_z);
-                  int32_t b_manhattan = std::abs(b.offset_x) + std::abs(b.offset_z);
-                  if (a_manhattan != b_manhattan)
-                      return (a_manhattan < b_manhattan);
-                  if (a.offset_z != b.offset_z)
-                      return (a.offset_z < b.offset_z);
-                  return (a.offset_x < b.offset_x);
-              });
-    for (const Candidate &candidate : candidates)
+    this->prepare_stream_candidates(stream_radius);
+    for (const StreamCandidate &candidate : this->stream_candidates_)
     {
         result = this->try_load_chunk_at(this->center_chunk_x + candidate.offset_x,
                                          this->center_chunk_z + candidate.offset_z);
@@ -277,6 +269,8 @@ int32_t World::update_around(double camera_x, double camera_z, int32_t generatio
         this->rebuild_chunk_index();
     }
     stream_radius = WorldCoordinates::render_distance_to_chunk_radius(this->active_render_distance);
+    if (generation_budget <= 0)
+        return (FT_ERR_SUCCESS);
     generated = 0;
     return (this->stream_chunks(stream_radius, generation_budget, &generated));
 }

@@ -47,6 +47,7 @@ class GpuWorldRenderer
     float _fallback_colors[16 * 3];
 
     GLint _u_mvp;
+    GLint _u_chunk_offset;
     GLint _u_atlas;
     GLint _u_atlas_loaded;
     GLint _u_tile_uvs;

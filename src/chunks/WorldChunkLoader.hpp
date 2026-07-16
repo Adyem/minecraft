@@ -38,8 +38,12 @@ class WorldChunkLoader
   private:
     struct NeighborContext
     {
-        WorldChunk *chunks;
-        int32_t chunk_count;
+        const WorldChunk *west;
+        const WorldChunk *east;
+        const WorldChunk *north;
+        const WorldChunk *south;
+        int32_t world_origin_x;
+        int32_t world_origin_z;
     };
 
     static int32_t lookup_block(void *user_data, int32_t world_x, int32_t world_y, int32_t world_z,

@@ -15,6 +15,7 @@ class WorldChunk
     int32_t world_z;
     game_voxel_chunk chunk;
     chunk_mesh mesh;
+    uint64_t mesh_revision;
     bool initialized;
 
     WorldChunk();

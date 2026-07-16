@@ -25,21 +25,42 @@ int32_t WorldChunkLoader::lookup_block(void *user_data, int32_t world_x, int32_t
     if (!user_data || !block_id)
         return FT_ERR_INVALID_ARGUMENT;
     NeighborContext *ctx = static_cast<NeighborContext *>(user_data);
-    if (!ctx->chunks || ctx->chunk_count <= 0 || world_y < 0 || world_y >= GAME_VOXEL_CHUNK_HEIGHT)
+    if (world_y < 0 || world_y >= GAME_VOXEL_CHUNK_HEIGHT)
     {
         *block_id = GAME_VOXEL_AIR_BLOCK;
         return FT_ERR_SUCCESS;
     }
-    int32_t cx = WorldCoordinates::floor_divide(world_x, GAME_VOXEL_CHUNK_WIDTH);
-    int32_t cz = WorldCoordinates::floor_divide(world_z, GAME_VOXEL_CHUNK_DEPTH);
-    const WorldChunk *wc = WorldChunkStore::find_chunk(ctx->chunks, ctx->chunk_count, cx, cz);
+    const int32_t local_x = world_x - ctx->world_origin_x;
+    const int32_t local_z = world_z - ctx->world_origin_z;
+    const WorldChunk *wc = nullptr;
+    int32_t read_x = local_x;
+    int32_t read_z = local_z;
+    if (local_x == -1 && local_z >= 0 && local_z < GAME_VOXEL_CHUNK_DEPTH)
+    {
+        wc = ctx->west;
+        read_x = GAME_VOXEL_CHUNK_WIDTH - 1;
+    }
+    else if (local_x == GAME_VOXEL_CHUNK_WIDTH && local_z >= 0 && local_z < GAME_VOXEL_CHUNK_DEPTH)
+    {
+        wc = ctx->east;
+        read_x = 0;
+    }
+    else if (local_z == -1 && local_x >= 0 && local_x < GAME_VOXEL_CHUNK_WIDTH)
+    {
+        wc = ctx->north;
+        read_z = GAME_VOXEL_CHUNK_DEPTH - 1;
+    }
+    else if (local_z == GAME_VOXEL_CHUNK_DEPTH && local_x >= 0 && local_x < GAME_VOXEL_CHUNK_WIDTH)
+    {
+        wc = ctx->south;
+        read_z = 0;
+    }
     if (!wc || !wc->initialized)
     {
         *block_id = GAME_VOXEL_AIR_BLOCK;
         return FT_ERR_SUCCESS;
     }
-    return wc->chunk.read_block(world_x - cx * GAME_VOXEL_CHUNK_WIDTH, world_y,
-                                world_z - cz * GAME_VOXEL_CHUNK_DEPTH, block_id);
+    return wc->chunk.read_block(read_x, world_y, read_z, block_id);
 }
 
 int32_t WorldChunkLoader::setup_chunk_coordinates(WorldChunk *world_chunk, int32_t chunk_x,
@@ -85,7 +106,12 @@ int32_t WorldChunkLoader::build_mesh_with_neighbors(WorldChunk *world_chunk, int
                                                     int32_t chunk_z, WorldChunk *chunks,
                                                     int32_t chunk_count)
 {
-    NeighborContext ctx = {chunks, chunk_count};
+    NeighborContext ctx = {WorldChunkStore::find_chunk(chunks, chunk_count, chunk_x - 1, chunk_z),
+                           WorldChunkStore::find_chunk(chunks, chunk_count, chunk_x + 1, chunk_z),
+                           WorldChunkStore::find_chunk(chunks, chunk_count, chunk_x, chunk_z - 1),
+                           WorldChunkStore::find_chunk(chunks, chunk_count, chunk_x, chunk_z + 1),
+                           chunk_x * GAME_VOXEL_CHUNK_WIDTH,
+                           chunk_z * GAME_VOXEL_CHUNK_DEPTH};
     int32_t err = chunk_mesh_generate_from_chunk_with_neighbors(
         world_chunk->mesh, world_chunk->chunk, chunk_x, chunk_z, &lookup_block, &ctx);
     if (err != FT_ERR_SUCCESS)
@@ -113,6 +139,7 @@ int32_t WorldChunkLoader::initialize_chunk(WorldChunk *world_chunk, int32_t chun
         return err;
     }
     world_chunk->initialized = true;
+    world_chunk->mesh_revision += 1U;
     return FT_ERR_SUCCESS;
 }
 
@@ -130,6 +157,7 @@ int32_t WorldChunkLoader::initialize_chunk(WorldChunk *world_chunk, int32_t chun
     if (err != FT_ERR_SUCCESS)
         return err;
     world_chunk->initialized = true;
+    world_chunk->mesh_revision += 1U;
     return FT_ERR_SUCCESS;
 }
 
@@ -148,6 +176,7 @@ int32_t WorldChunkLoader::initialize_chunk(WorldChunk *world_chunk, int32_t chun
     if (err != FT_ERR_SUCCESS)
         return err;
     world_chunk->initialized = true;
+    world_chunk->mesh_revision += 1U;
     return FT_ERR_SUCCESS;
 }
 
@@ -175,6 +204,8 @@ int32_t WorldChunkLoader::remesh_chunk(WorldChunk *chunks, int32_t chunk_count, 
     int32_t err = chunk_mesh_clear(wc->mesh);
     if (err == FT_ERR_SUCCESS)
         err = chunk_mesh_generate_from_chunk(wc->mesh, wc->chunk);
+    if (err == FT_ERR_SUCCESS)
+        wc->mesh_revision += 1U;
     return err;
 }
 
@@ -188,10 +219,23 @@ int32_t WorldChunkLoader::remesh_chunk(WorldChunk *chunks, int32_t chunk_count, 
     if (err != FT_ERR_SUCCESS)
         return err;
     if (!use_neighbors)
-        return chunk_mesh_generate_from_chunk(wc->mesh, wc->chunk);
-    NeighborContext ctx = {chunks, chunk_count};
-    return chunk_mesh_generate_from_chunk_with_neighbors(wc->mesh, wc->chunk, chunk_x, chunk_z,
-                                                         &lookup_block, &ctx);
+    {
+        err = chunk_mesh_generate_from_chunk(wc->mesh, wc->chunk);
+        if (err == FT_ERR_SUCCESS)
+            wc->mesh_revision += 1U;
+        return err;
+    }
+    NeighborContext ctx = {WorldChunkStore::find_chunk(chunks, chunk_count, chunk_x - 1, chunk_z),
+                           WorldChunkStore::find_chunk(chunks, chunk_count, chunk_x + 1, chunk_z),
+                           WorldChunkStore::find_chunk(chunks, chunk_count, chunk_x, chunk_z - 1),
+                           WorldChunkStore::find_chunk(chunks, chunk_count, chunk_x, chunk_z + 1),
+                           chunk_x * GAME_VOXEL_CHUNK_WIDTH,
+                           chunk_z * GAME_VOXEL_CHUNK_DEPTH};
+    err = chunk_mesh_generate_from_chunk_with_neighbors(wc->mesh, wc->chunk, chunk_x, chunk_z,
+                                                        &lookup_block, &ctx);
+    if (err == FT_ERR_SUCCESS)
+        wc->mesh_revision += 1U;
+    return err;
 }
 
 int32_t WorldChunkLoader::remesh_edited_chunk_border(WorldChunk *chunks, int32_t chunk_count,

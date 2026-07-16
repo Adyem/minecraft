@@ -54,6 +54,7 @@ class GameSession
     double rd_accumulator_;
     double display_fps_;
     double frame_ms_;
+    double performance_frame_ms_;
     uint64_t fps_frame_count_;
     uint32_t selected_block_id_;
     bool boost_enabled_;

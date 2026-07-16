@@ -10,7 +10,8 @@ const char *GameSession::BIOME_NAMES[5] = {"PLAINS", "HILLS", "DESERT", "SNOW", 
 GameSession::GameSession()
     : camera_(), player_character_(), world_(), render_debug_(),
       active_render_distance_(WorldCoordinates::REQUIRED_VISIBLE_DISTANCE), fps_accumulator_(0.0),
-      rd_accumulator_(0.0), display_fps_(0.0), frame_ms_(0.0), fps_frame_count_(0U),
+      rd_accumulator_(0.0), display_fps_(0.0), frame_ms_(0.0), performance_frame_ms_(16.67),
+      fps_frame_count_(0U),
       selected_block_id_(TERRAIN_GENERATOR_DIRT_BLOCK), boost_enabled_(false), active_(false),
       error_code_(FT_ERR_SUCCESS)
 {
@@ -20,7 +21,8 @@ GameSession::GameSession()
 GameSession::GameSession(const GameSession &other)
     : camera_(), player_character_(), world_(), render_debug_(),
       active_render_distance_(WorldCoordinates::REQUIRED_VISIBLE_DISTANCE), fps_accumulator_(0.0),
-      rd_accumulator_(0.0), display_fps_(0.0), frame_ms_(0.0), fps_frame_count_(0U),
+      rd_accumulator_(0.0), display_fps_(0.0), frame_ms_(0.0), performance_frame_ms_(16.67),
+      fps_frame_count_(0U),
       selected_block_id_(TERRAIN_GENERATOR_DIRT_BLOCK), boost_enabled_(false), active_(false),
       error_code_(FT_ERR_SUCCESS)
 {
@@ -93,6 +95,7 @@ int GameSession::start(const std::string &seed, ApplicationWindow &window, Voxel
     rd_accumulator_ = 0.0;
     display_fps_ = 0.0;
     frame_ms_ = 0.0;
+    performance_frame_ms_ = 16.67;
     error_code_ = FT_ERR_SUCCESS;
     active_ = true;
     if (window.is_gpu_mode() && window.get_gpu_window() && renderer.get_gpu_renderer() == nullptr)
@@ -129,7 +132,21 @@ bool GameSession::is_active() const
 }
 bool GameSession::is_ready_to_play() const
 {
-    return active_ && world_.loaded_chunk_count >= 4;
+    if (!active_)
+        return false;
+    const int32_t radius =
+        WorldCoordinates::render_distance_to_chunk_radius(active_render_distance_);
+    const int32_t radius_sq = radius * radius;
+    int32_t required_chunks = 0;
+    for (int32_t z = -radius; z <= radius; ++z)
+    {
+        for (int32_t x = -radius; x <= radius; ++x)
+        {
+            if ((x * x) + (z * z) <= radius_sq)
+                required_chunks += 1;
+        }
+    }
+    return world_.loaded_chunk_count >= required_chunks;
 }
 int GameSession::error_code() const
 {
@@ -140,7 +157,8 @@ int GameSession::loading_tick(const RenderDistanceStrategy &strategy)
 {
     if (!active_)
         return FT_ERR_INVALID_ARGUMENT;
-    int gen = strategy.generation_budget_for_frame(frame_ms_, false);
+    (void)strategy;
+    const int32_t gen = 2;
     error_code_ = world_.update_around(static_cast<double>(player_character_.get_x()),
                                        static_cast<double>(player_character_.get_z()), gen,
                                        active_render_distance_);
@@ -170,7 +188,7 @@ GameSession::Action GameSession::tick_world(double delta_seconds,
 
     active_render_distance_ =
         std::min(active_render_distance_, Settings::instance().render_distance());
-    int gen = strategy.generation_budget_for_frame(frame_ms_, boost_enabled_);
+    int gen = strategy.generation_budget_for_frame(performance_frame_ms_, boost_enabled_);
     error_code_ = world_.update_around(static_cast<double>(player_character_.get_x()),
                                        static_cast<double>(player_character_.get_z()), gen,
                                        active_render_distance_);
@@ -192,12 +210,15 @@ void GameSession::tick_fps_counter(double delta_seconds, const RenderDistanceStr
     if (strategy.should_update_render_distance(rd_accumulator_))
     {
         active_render_distance_ =
-            strategy.update_render_distance(active_render_distance_, frame_ms_, boost_enabled_);
+            strategy.update_render_distance(active_render_distance_, performance_frame_ms_,
+                                            boost_enabled_);
         active_render_distance_ =
             std::min(active_render_distance_, Settings::instance().render_distance());
         rd_accumulator_ = 0.0;
     }
     frame_ms_ = delta_seconds * 1000.0;
+    const double bounded_sample = std::min(frame_ms_, 100.0);
+    performance_frame_ms_ += (bounded_sample - performance_frame_ms_) * 0.1;
     fps_accumulator_ += delta_seconds;
     fps_frame_count_ += 1U;
     if (fps_accumulator_ >= 0.25)

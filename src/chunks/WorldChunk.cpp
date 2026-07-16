@@ -1,12 +1,12 @@
 #include "../../src/chunks/WorldChunk.hpp"
 
 WorldChunk::WorldChunk()
-    : chunk_x(0), chunk_z(0), world_x(0), world_z(0), initialized(false)
+    : chunk_x(0), chunk_z(0), world_x(0), world_z(0), mesh_revision(0U), initialized(false)
 {
 }
 
 WorldChunk::WorldChunk(const WorldChunk &other)
-    : chunk_x(0), chunk_z(0), world_x(0), world_z(0), initialized(false)
+    : chunk_x(0), chunk_z(0), world_x(0), world_z(0), mesh_revision(0U), initialized(false)
 {
     (void)other;
 }
