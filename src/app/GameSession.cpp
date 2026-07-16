@@ -8,7 +8,7 @@
 const char *GameSession::BIOME_NAMES[5] = {"PLAINS", "HILLS", "DESERT", "SNOW", "MOUNTAINS"};
 
 GameSession::GameSession()
-    : camera_(), world_(), render_debug_(),
+    : camera_(), player_character_(), world_(), render_debug_(),
       active_render_distance_(WorldCoordinates::REQUIRED_VISIBLE_DISTANCE), fps_accumulator_(0.0),
       rd_accumulator_(0.0), display_fps_(0.0), frame_ms_(0.0), fps_frame_count_(0U),
       selected_block_id_(TERRAIN_GENERATOR_DIRT_BLOCK), boost_enabled_(false), active_(false),
@@ -18,7 +18,7 @@ GameSession::GameSession()
 }
 
 GameSession::GameSession(const GameSession &other)
-    : camera_(), world_(), render_debug_(),
+    : camera_(), player_character_(), world_(), render_debug_(),
       active_render_distance_(WorldCoordinates::REQUIRED_VISIBLE_DISTANCE), fps_accumulator_(0.0),
       rd_accumulator_(0.0), display_fps_(0.0), frame_ms_(0.0), fps_frame_count_(0U),
       selected_block_id_(TERRAIN_GENERATOR_DIRT_BLOCK), boost_enabled_(false), active_(false),
@@ -74,10 +74,17 @@ int GameSession::start(const std::string &seed, ApplicationWindow &window, Voxel
     error_code_ = world_.initialize(seed.c_str());
     if (error_code_ != FT_ERR_SUCCESS)
         return error_code_;
+    error_code_ = player_character_.initialize();
+    if (error_code_ != FT_ERR_SUCCESS)
+    {
+        world_.destroy();
+        return error_code_;
+    }
     std::strncpy(seed_, seed.c_str(), sizeof(seed_) - 1);
     seed_[sizeof(seed_) - 1] = '\0';
     camera_.initialize();
     PlayerController::spawn_player_on_ground(&camera_, world_);
+    sync_player_character_location();
     active_render_distance_ = Settings::instance().render_distance();
     boost_enabled_ = false;
     selected_block_id_ = TERRAIN_GENERATOR_DIRT_BLOCK;
@@ -112,6 +119,7 @@ void GameSession::stop()
 {
     if (active_)
         world_.destroy();
+    player_character_.destroy();
     active_ = false;
 }
 
@@ -133,7 +141,9 @@ int GameSession::loading_tick(const RenderDistanceStrategy &strategy)
     if (!active_)
         return FT_ERR_INVALID_ARGUMENT;
     int gen = strategy.generation_budget_for_frame(frame_ms_, false);
-    error_code_ = world_.update_around(camera_.x, camera_.z, gen, active_render_distance_);
+    error_code_ = world_.update_around(static_cast<double>(player_character_.get_x()),
+                                       static_cast<double>(player_character_.get_z()), gen,
+                                       active_render_distance_);
     return error_code_;
 }
 
@@ -156,11 +166,14 @@ GameSession::Action GameSession::tick_world(double delta_seconds,
     CameraInput input = InputReader::read_camera_input(boost_enabled_);
     PlayerController::update_player_vertical_motion(&camera_, input, world_, delta_seconds);
     PlayerController::update_player_horizontal_motion(&camera_, input, world_, delta_seconds);
+    sync_player_character_location();
 
     active_render_distance_ =
         std::min(active_render_distance_, Settings::instance().render_distance());
     int gen = strategy.generation_budget_for_frame(frame_ms_, boost_enabled_);
-    error_code_ = world_.update_around(camera_.x, camera_.z, gen, active_render_distance_);
+    error_code_ = world_.update_around(static_cast<double>(player_character_.get_x()),
+                                       static_cast<double>(player_character_.get_z()), gen,
+                                       active_render_distance_);
     if (error_code_ != FT_ERR_SUCCESS)
         return Action::FAILED;
 
@@ -231,8 +244,8 @@ void GameSession::build_render_debug(VoxelRenderer &renderer)
     render_debug_.seed[sizeof(render_debug_.seed) - 1] = '\0';
 
     uint32_t biome_index = terrain_get_biome_index(
-        world_.terrain_generation_settings(), static_cast<int32_t>(camera_.x),
-        static_cast<int32_t>(camera_.z), seed_);
+        world_.terrain_generation_settings(), player_character_.get_x(),
+        player_character_.get_z(), seed_);
     const char *bname = (biome_index < 5U) ? BIOME_NAMES[biome_index] : nullptr;
     if (bname != nullptr)
         std::strncpy(render_debug_.biome_name, bname,
@@ -241,6 +254,13 @@ void GameSession::build_render_debug(VoxelRenderer &renderer)
         std::snprintf(render_debug_.biome_name, sizeof(render_debug_.biome_name),
             "CUSTOM_%u", biome_index);
     render_debug_.biome_name[sizeof(render_debug_.biome_name) - 1] = '\0';
+}
+
+void GameSession::sync_player_character_location()
+{
+    player_character_.set_x(static_cast<int32_t>(std::floor(camera_.x)));
+    player_character_.set_y(static_cast<int32_t>(std::floor(camera_.y)));
+    player_character_.set_z(static_cast<int32_t>(std::floor(camera_.z)));
 }
 
 void GameSession::render(ApplicationWindow &window, VoxelRenderer &renderer, bool with_overlay)

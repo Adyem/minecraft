@@ -13,6 +13,7 @@
 #include "../../src/interaction/BlockInteractor.hpp"
 #include "../../src/policy/RenderDistanceStrategy.hpp"
 #include "../../src/settings/Settings.hpp"
+#include "../../Libft/Modules/Game/game_character.hpp"
 
 class GameSession
 {
@@ -44,6 +45,7 @@ class GameSession
 
   private:
     Camera camera_;
+    game_character player_character_;
     World world_;
     RenderDebug render_debug_;
 
@@ -66,6 +68,7 @@ class GameSession
     Action tick_world(double delta_seconds, const RenderDistanceStrategy &strategy);
     void tick_fps_counter(double delta_seconds, const RenderDistanceStrategy &strategy);
     void build_render_debug(VoxelRenderer &renderer);
+    void sync_player_character_location();
 };
 
 #endif
