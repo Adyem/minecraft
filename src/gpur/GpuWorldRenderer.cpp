@@ -101,6 +101,7 @@ bool GpuWorldRenderer::initialize(int width, int height, GLuint sky_vao, GLuint 
     upload_atlas_uniforms();
     _width = width;
     _height = height;
+    update_crosshair_geometry();
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glEnable(GL_CULL_FACE);
@@ -119,8 +120,27 @@ void GpuWorldRenderer::destroy()
 
 void GpuWorldRenderer::resize(int width, int height)
 {
+    if (_width == width && _height == height)
+        return;
     _width = width;
     _height = height;
+    update_crosshair_geometry();
+}
+
+void GpuWorldRenderer::update_crosshair_geometry()
+{
+    if (_width <= 0 || _height <= 0)
+        return;
+    const float sx = 8.0f / static_cast<float>(_width);
+    const float sy = 8.0f / static_cast<float>(_height);
+    const float verts[] = {-sx, 0.0f, sx, 0.0f, 0.0f, -sy, 0.0f, sy};
+    glBindVertexArray(_crosshair_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, _crosshair_vbo);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeof(verts)), verts, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, static_cast<GLsizei>(2 * sizeof(float)),
+                          nullptr);
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
 }
 
 void GpuWorldRenderer::draw_sky() const
@@ -134,15 +154,7 @@ void GpuWorldRenderer::draw_sky() const
 
 void GpuWorldRenderer::draw_crosshair() const
 {
-    float sx = 8.0f / static_cast<float>(_width);
-    float sy = 8.0f / static_cast<float>(_height);
-    float verts[] = {-sx, 0.0f, sx, 0.0f, 0.0f, -sy, 0.0f, sy};
     glBindVertexArray(_crosshair_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, _crosshair_vbo);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeof(verts)), verts, GL_STREAM_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, static_cast<GLsizei>(2 * sizeof(float)),
-                          nullptr);
-    glEnableVertexAttribArray(0);
     const float color[4] = {0.96f, 0.96f, 0.92f, 1.0f};
     _crosshair_shader.use();
     glUniform4fv(_u_crosshair_color, 1, color);

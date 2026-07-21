@@ -38,17 +38,18 @@ void MeshCuller::face_normal(uint8_t face, double &nx, double &ny, double &nz)
 bool MeshCuller::triangle_faces_camera(const Camera &camera, const WorldChunk &world_chunk,
                                        const chunk_mesh_vertex triangle_vertices[3])
 {
-    double nx, ny, nz;
-    face_normal(triangle_vertices[0].face, nx, ny, nz);
-
-    double wx = static_cast<double>(world_chunk.world_x) +
-                static_cast<double>(triangle_vertices[0].coordinate_x);
-    double wy = static_cast<double>(triangle_vertices[0].coordinate_y);
-    double wz = static_cast<double>(world_chunk.world_z) +
-                static_cast<double>(triangle_vertices[0].coordinate_z);
-
-    double dot = nx * (camera.x - wx) + ny * (camera.y - wy) + nz * (camera.z - wz);
-    return dot > 0.0;
+    const chunk_mesh_vertex &vertex = triangle_vertices[0];
+    if (vertex.face == CHUNK_MESH_FACE_WEST)
+        return camera.x < static_cast<double>(world_chunk.world_x + vertex.coordinate_x);
+    if (vertex.face == CHUNK_MESH_FACE_EAST)
+        return camera.x > static_cast<double>(world_chunk.world_x + vertex.coordinate_x);
+    if (vertex.face == CHUNK_MESH_FACE_DOWN)
+        return camera.y < static_cast<double>(vertex.coordinate_y);
+    if (vertex.face == CHUNK_MESH_FACE_UP)
+        return camera.y > static_cast<double>(vertex.coordinate_y);
+    if (vertex.face == CHUNK_MESH_FACE_NORTH)
+        return camera.z < static_cast<double>(world_chunk.world_z + vertex.coordinate_z);
+    return camera.z > static_cast<double>(world_chunk.world_z + vertex.coordinate_z);
 }
 
 void MeshCuller::chunk_corner_in_view(const Camera &camera, const WorldChunk &wc,

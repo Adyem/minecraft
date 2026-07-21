@@ -58,6 +58,7 @@ class GpuWorldRenderer
     bool compile_shaders(const std::string &shader_dir);
     void cache_uniforms();
     void upload_atlas_uniforms();
+    void update_crosshair_geometry();
     void draw_sky() const;
     void draw_crosshair() const;
 

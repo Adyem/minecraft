@@ -165,7 +165,6 @@ void PerfSession::run_loop(const ApplicationOptions &options,
 
         if (options.perf_test_mode)
         {
-            s.perf_hash = FramebufferHasher::hash_framebuffer(window.framebuffer());
             double elapsed =
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - perf_start)
                     .count();
@@ -178,6 +177,7 @@ void PerfSession::run_loop(const ApplicationOptions &options,
     {
         double elapsed =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - perf_start).count();
+        s.perf_hash = FramebufferHasher::hash_framebuffer(window.framebuffer());
         print_results(s.frames, elapsed, s.perf_hash);
     }
 }
