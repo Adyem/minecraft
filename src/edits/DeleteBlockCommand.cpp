@@ -36,6 +36,12 @@ int32_t DeleteBlockCommand::execute(World &world) const
     WorldChunk *wc = resolve_chunk(world, world_x, world_y, world_z, cx, cz, lx, lz);
     if (!wc)
         return FT_ERR_INVALID_ARGUMENT;
+    uint32_t existing_block_id;
+    int32_t read_err = wc->chunk.read_block(lx, world_y, lz, &existing_block_id);
+    if (read_err != FT_ERR_SUCCESS)
+        return read_err;
+    if (terrain_block_is_breakable(existing_block_id) == FT_FALSE)
+        return FT_ERR_INVALID_OPERATION;
     int32_t err = wc->chunk.write_block(lx, world_y, lz, GAME_VOXEL_AIR_BLOCK);
     if (err != FT_ERR_SUCCESS)
         return err;

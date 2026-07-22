@@ -135,7 +135,8 @@ int32_t BlockInteractor::try_pick_target_block(const World *world, const Camera 
     uint32_t hit_id;
     if (world->raycast_edit_target(camera.x, camera.y, camera.z, dx, dy, dz, 10.0, &hx, &hy, &hz, &px, &py, &pz, &hit_id) != FT_ERR_SUCCESS)
         return FT_ERR_SUCCESS;
-    if (hit_id != GAME_VOXEL_AIR_BLOCK && terrain_block_is_known(hit_id) == FT_TRUE)
+    if (hit_id != GAME_VOXEL_AIR_BLOCK && terrain_block_is_known(hit_id) == FT_TRUE
+        && terrain_block_is_breakable(hit_id) == FT_TRUE)
         *selected_block_id = hit_id;
     return FT_ERR_SUCCESS;
 }
