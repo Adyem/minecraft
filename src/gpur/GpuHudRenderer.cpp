@@ -114,8 +114,7 @@ void GpuHudRenderer::upload_tex(GLuint &tex, int &stored_w, int &stored_h,
         uint8_t  b  = static_cast<uint8_t>( p        & 0xFFU);
         uint8_t  a  = opaque_alpha
             ? ((p == 0U) ? 0U : 255U)
-            : static_cast<uint8_t>
-                (r > g2 ? (r > b ? r : b) : (g2 > b ? g2 : b));
+            : (r > g2 ? (r > b ? r : b) : (g2 > b ? g2 : b));
         rgba_buf[i*4U+0U] = r; rgba_buf[i*4U+1U] = g2;
         rgba_buf[i*4U+2U] = b; rgba_buf[i*4U+3U] = a;
     }
