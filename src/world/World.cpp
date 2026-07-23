@@ -16,7 +16,8 @@ World::World()
     this->active_render_distance = WorldCoordinates::REQUIRED_VISIBLE_DISTANCE;
     this->stream_candidates_radius_ = -1;
     this->seed[0] = '\0';
-    this->terrain_config = terrain_default_generation_config();
+    terrain_default_generation_config(this->terrain_config);
+    this->terrain_generation_started = false;
     this->clear_chunk_index();
 }
 
@@ -113,6 +114,12 @@ static void world_remesh_loaded_neighbor(World *world, int32_t chunk_x, int32_t 
 
 int32_t World::initialize(const char *seed_value)
 {
+    return (this->initialize(seed_value, nullptr));
+}
+
+int32_t World::initialize(const char *seed_value,
+                          const char *terrain_config_file_path)
+{
     int32_t index;
     int32_t error_code;
 
@@ -124,6 +131,17 @@ int32_t World::initialize(const char *seed_value)
     this->active_render_distance = WorldCoordinates::REQUIRED_VISIBLE_DISTANCE;
     this->clear_chunk_index();
     this->copy_seed(seed_value);
+    if (terrain_config_file_path != nullptr)
+    {
+        error_code = this->load_terrain_config(terrain_config_file_path);
+        if (error_code != FT_ERR_SUCCESS)
+            return (error_code);
+    }
+    error_code = terrain_generation_context_initialize(this->terrain_context,
+                                                       this->terrain_config);
+    if (error_code != FT_ERR_SUCCESS)
+        return (error_code);
+    this->terrain_generation_started = true;
     index = 0;
     while (index < this->chunk_count)
     {
@@ -175,12 +193,37 @@ void World::prepare_stream_candidates(int32_t stream_radius)
 
 void World::set_terrain_config(const terrain_generation_config &config)
 {
-    this->terrain_config = config;
+    if (this->terrain_generation_started)
+        return;
+    this->terrain_config.initialize(config);
 }
 
 const terrain_generation_config &World::terrain_generation_settings() const
 {
     return (this->terrain_config);
+}
+
+int32_t World::load_terrain_config(const char *file_path)
+{
+    if (file_path == nullptr)
+        return (FT_ERR_INVALID_ARGUMENT);
+    if (this->terrain_generation_started)
+        return (FT_ERR_INVALID_OPERATION);
+    return (terrain_generation_config_load_file(file_path,
+                                                this->terrain_config));
+}
+
+int32_t World::save_terrain_config(const char *file_path) const
+{
+    const terrain_generation_config *config_to_save;
+
+    if (file_path == nullptr)
+        return (FT_ERR_INVALID_ARGUMENT);
+    config_to_save = &this->terrain_config;
+    if (this->terrain_generation_started)
+        config_to_save = &this->terrain_context.config();
+    return (terrain_generation_config_save_file(file_path,
+                                                *config_to_save));
 }
 
 void World::destroy()
@@ -195,6 +238,8 @@ void World::destroy()
     }
     this->loaded_chunk_count = 0;
     this->clear_chunk_index();
+    (void)this->terrain_context.destroy();
+    this->terrain_generation_started = false;
 }
 
 int32_t World::update_around(double camera_x, double camera_z, int32_t generation_budget)
@@ -215,7 +260,7 @@ int32_t World::try_load_chunk_at(int32_t chunk_x, int32_t chunk_z)
         return (FT_ERR_NO_MEMORY);
     error_code = WorldChunkLoader::initialize_chunk(slot, chunk_x, chunk_z, this->seed,
                                                     this->chunks, this->chunk_count,
-                                                    this->terrain_config);
+                                                    this->terrain_context.config());
     if (error_code != FT_ERR_SUCCESS)
         return (error_code);
     this->loaded_chunk_count = this->loaded_chunk_count + 1;

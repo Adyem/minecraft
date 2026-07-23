@@ -28,6 +28,8 @@ class World
     int32_t active_render_distance;
     char seed[128];
     terrain_generation_config terrain_config;
+    terrain_generation_context terrain_context;
+    bool terrain_generation_started;
 
     World();
     World(const World &other);
@@ -35,8 +37,12 @@ class World
     World &operator=(const World &other);
 
     int32_t initialize(const char *seed_value);
+    int32_t initialize(const char *seed_value,
+                       const char *terrain_config_file_path);
     void set_terrain_config(const terrain_generation_config &config);
     const terrain_generation_config &terrain_generation_settings() const;
+    int32_t load_terrain_config(const char *file_path);
+    int32_t save_terrain_config(const char *file_path) const;
     void destroy();
     int32_t update_around(double camera_x, double camera_z, int32_t generation_budget);
     int32_t update_around(double camera_x, double camera_z, int32_t generation_budget,

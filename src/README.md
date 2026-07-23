@@ -25,17 +25,26 @@ Libft keeps the low-level generator and built-in templates, while the game
 chooses the policy:
 
 ```cpp
-terrain_generation_config terrain = terrain_default_generation_config();
-terrain.sea_level = 68;
-terrain.water_chance_percent = 55;
-terrain.biomes[0].profile.height_variation = 10; // uneven plains
-terrain.biomes[0].tree_chance_percent = 8;
-terrain.biomes[0].tree_template = &terrain_large_oak_tree_template();
+terrain_generation_config terrain;
+terrain_default_generation_config(terrain);
+terrain.set_sea_level(68);
+terrain.set_water_chance_percent(55);
+terrain.set_biome_height_profile(0U, 76, 10, 3); // uneven plains
+terrain.set_biome_decoration_policy(0U, FT_TRUE, FT_TRUE, 6U, 8U);
+terrain.set_biome_tree_template_override(0U,
+    &terrain_large_oak_tree_template());
 
 GameSession session;
 session.set_terrain_generation_config(terrain);
 session.start(seed, window, renderer);
 ```
+
+For saved worlds, pass the world-owned terrain policy path to
+`World::initialize(seed, terrain_config_file_path)`. `World` loads the policy
+through Libft before the first chunk is generated, and Libft owns the binary
+format and file I/O. Once generation starts, `World` keeps a private Libft
+generation context and ignores later terrain-policy changes until the world is
+restarted. Use `World::save_terrain_config(...)` to persist the active policy.
 
 Custom biome slots are selected with `biome_selector`; custom tree/object
 templates are supplied through `terrain_feature_rule`. Validate a policy with

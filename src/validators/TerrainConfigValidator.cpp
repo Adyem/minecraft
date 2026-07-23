@@ -15,18 +15,22 @@ TerrainConfigValidator &TerrainConfigValidator::operator=(const TerrainConfigVal
 int TerrainConfigValidator::validate() const
 {
     game_voxel_chunk chunk;
-    terrain_generation_config config = terrain_default_generation_config();
+    terrain_generation_config config;
+
+    terrain_default_generation_config(config);
     uint32_t block_id;
 
-    config.biome_count = 1U;
-    config.sea_level = 0;
-    config.water_chance_percent = 0U;
-    config.biomes[0].profile.surface_height = 32;
-    config.biomes[0].profile.height_variation = 0;
-    config.biomes[0].profile.topsoil_depth = 0;
-    config.biomes[0].surface_block_id = TERRAIN_GENERATOR_SAND_BLOCK;
-    config.biomes[0].allow_shrubs = FT_FALSE;
-    config.biomes[0].allow_trees = FT_FALSE;
+    config.set_biome_count(1U);
+    config.set_sea_level(0);
+    config.set_water_chance_percent(0U);
+    terrain_biome_profile profile;
+    profile.surface_height = 32;
+    profile.height_variation = 0;
+    profile.topsoil_depth = 0;
+    config.biomes[0].set_profile(profile);
+    config.biomes[0].set_block_palette(TERRAIN_GENERATOR_SAND_BLOCK,
+        TERRAIN_GENERATOR_SAND_BLOCK, TERRAIN_GENERATOR_STONE_BLOCK);
+    config.biomes[0].set_decoration_policy(FT_FALSE, FT_FALSE, 6U, 18U);
     if (chunk.initialize() != FT_ERR_SUCCESS)
         return (1);
     if (terrain_generate_chunk(chunk, 0, 0, "config-validator", config)
